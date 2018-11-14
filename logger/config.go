@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 
-	"github.com/rybit/lambdalogger/util"
+	"github.com/rybit/lambda_example/util"
 )
 
 type configuration struct {

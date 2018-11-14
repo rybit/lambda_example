@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rybit/lambdalogger/util"
+	"github.com/rybit/lambda_example/util"
 
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/sirupsen/logrus"
