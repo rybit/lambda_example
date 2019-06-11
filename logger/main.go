@@ -1,20 +1,22 @@
 package main
 
 import (
+	"fmt"
 	"context"
 	"net/http"
 	"strings"
 	"time"
 
-	"github.com/rybit/lambda_example/util"
-
 	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/sirupsen/logrus"
+	
+	"github.com/rybit/lambda_example/util"
 )
 
 var config configuration
-var rootLogger *logrus.Entry
+var rootLogger logrus.FieldLogger
 var client *http.Client
+var url string
 
 func main() {
 	util.LoadConfig(&config)
@@ -28,7 +30,13 @@ func main() {
 		client.Timeout = time.Second * time.Duration(config.TimeoutSec)
 	}
 
+	url = fmt.Sprintf("%s/api/v1/ingest/humio-unstructured", config.Humio.Endpoint)
+	rootLogger.Debugf("Sending data to %s", url)
+
 	rootLogger.Debug("Startup completed")
+	if config.Test {
+		readAndSend()
+	}
 	lambda.Start(handleEvent)
 }
 
@@ -46,12 +54,12 @@ func handleEvent(ctx context.Context, input rawEvent) error {
 		Tags: map[string]interface{}{
 			"aws_account_id": decoded.Owner,
 			"message_type":   decoded.MessageType,
+			"log_group":      decoded.LogGroup,
 		},
 	}
 
 	if config.Humio.Parser != "" {
 		out.Type = config.Humio.Parser
-		out.Tags["log_group"] = decoded.LogGroup
 	} else {
 		out.Type = strings.Replace(decoded.LogGroup, "/", "_", -1)
 	}

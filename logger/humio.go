@@ -12,10 +12,9 @@ import (
 )
 
 type humioConfig struct {
-	Token      string
-	Repository string
-	Parser     string
-	Endpoint   string `default:"https://cloud.humio.com"`
+	Token    string
+	Parser   string
+	Endpoint string `default:"https://cloud.humio.com"`
 }
 
 /*
@@ -35,41 +34,38 @@ https://docs.humio.com/api/ingest-api/
 */
 type humioMsg struct {
 	// Type The parser Humio will use to parse the messages
-	Type string `json:"type"`
+	Type string `json:"type,omitempty"`
 	// Fields Annotate each of the messages with these key-values. Values must be strings.
-	Fields map[string]string `json:"fields"`
+	Fields map[string]string `json:"fields,omitempty"`
 	// Tags Annotate each of the messages with these key-values as Tags. Please see other documentation on tags before using.
-	Tags map[string]interface{} `json:"tags"`
+	Tags map[string]interface{} `json:"tags,omitempty"`
 
 	// Messages	The raw strings representing the events. Each string will be parsed by the parser specified by type.
-	Messages []string `json:"messages"`
+	Messages []string `json:"messages,omitempty"`
 }
 
-func send(log *logrus.Entry, out *humioMsg) (int, error) {
-	bs, err := json.Marshal(out)
+func send(log logrus.FieldLogger, out *humioMsg) (int, error) {
+	bs, err := json.Marshal([]*humioMsg{out})
 	if err != nil {
 		return 0, errors.Wrap(err, "Failed to marshal json")
 	}
 
-	url := fmt.Sprintf("%s/api/v1/dataspaces/%s/ingest-messages", config.Humio.Endpoint, config.Humio.Repository)
-	log.Debugf("Sending data to %s", url)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(bs))
 	if err != nil {
 		return 0, errors.Wrap(err, "Failed to make a new request object")
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", config.Humio.Token))
+	req.Header.Set("Accept", "text/plain")
 
 	rsp, err := client.Do(req)
 	if err != nil {
 		return 0, errors.Wrap(err, "Failed to make the request")
 	}
-	if rsp.Body != nil {
-		defer rsp.Body.Close()
-	}
+	defer rsp.Body.Close()
+	log.WithField("status_code", rsp.StatusCode).Debug("Got response from humio")
 
 	if rsp.StatusCode != http.StatusOK {
-
 		val, err := ioutil.ReadAll(rsp.Body)
 		if err != nil {
 			return rsp.StatusCode, errors.Wrap(err, "Failed to read response body")

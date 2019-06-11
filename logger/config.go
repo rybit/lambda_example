@@ -11,14 +11,12 @@ type configuration struct {
 
 	Humio      humioConfig
 	TimeoutSec int `split_words:"true"`
+	Test       bool
 }
 
 func (c *configuration) validate() error {
 	if c.Humio.Token == "" {
 		return errors.New("Must set HUMIO_TOKEN")
-	}
-	if c.Humio.Repository == "" {
-		return errors.New("Must set HUMIO_REPOSITORY")
 	}
 	return nil
 }
