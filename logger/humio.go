@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -42,6 +43,32 @@ type humioMsg struct {
 
 	// Messages	The raw strings representing the events. Each string will be parsed by the parser specified by type.
 	Messages []string `json:"messages,omitempty"`
+}
+
+func buildMessage(input rawEvent) (*humioMsg, error) {
+	decoded, err := input.decode()
+	if err != nil {
+		return nil, errors.Wrap(err, "Failed to decode message")
+	}
+
+	out := &humioMsg{
+		Tags: map[string]interface{}{
+			"aws_account_id": decoded.Owner,
+			"message_type":   decoded.MessageType,
+			"log_group":      decoded.LogGroup,
+		},
+	}
+
+	if config.Humio.Parser != "" {
+		out.Type = config.Humio.Parser
+	} else {
+		out.Type = strings.Replace(decoded.LogGroup, "/", "_", -1)
+	}
+
+	for _, le := range decoded.LogEvents {
+		out.Messages = append(out.Messages, le.Message)
+	}
+	return out, nil
 }
 
 func send(log logrus.FieldLogger, out *humioMsg) (int, error) {

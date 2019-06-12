@@ -1,12 +1,12 @@
-.PHONY: build clean deploy prod_deploy
+.PHONY: build clean deploy prod_deploy 
 
 PROFILE = personal
 REGION = us-east-1
 
-# sha = $(shell git rev-parse HEAD | cut -b -6)
-# tag = $(shell git show-ref --tags -d | grep $(sha) | cut -d '/' -f 3-)
-# ldflags = -X github.com/rybit/lambdalogger/util.SHA=$(sha) -X github.com/rybit/lambdalogger/util.Tag=$(tag)
-# clean = $(shell git status --porcelain)
+sha = $(shell git rev-parse HEAD | cut -b -6)
+tag = $(shell git show-ref --tags -d | grep $(sha) | cut -d '/' -f 3-)
+ldflags = -X github.com/rybit/lambdalogger/util.SHA=$(sha) -X github.com/rybit/lambdalogger/util.Tag=$(tag)
+clean = $(shell git status --porcelain)
 
 project = lambdalogger
 
@@ -27,20 +27,21 @@ clean_%:
 # BUILD
 ###################################################################################################
 build_%: func = $*
-build_%: clean_% 
+build_%: clean_%
 	@echo "=== Building sha: '$(sha)' tag: '$(tag)' for $(os)/$(arch)"
-	cd $(func) && GOOS=$(os) GOARCH=$(arch) go build -o ../dist/$(func).out -ldflags "$(ldflags)" 
+	cd $(func) && GOOS=$(os) GOARCH=$(arch) go build -o ../dist/$(func).out -ldflags "$(ldflags)"
 
 ###################################################################################################
 # DEPLOY
 ###################################################################################################
 
 deploy_%: func = $*
+
 deploy_%: zip = $(func)_latest.zip
 deploy_%: funcname = $(func)_dev
 deploy_%: _deploy_%
 	@echo "=== Updating function: $(funcname)"
-	@aws --profile $(PROFILE) lambda update-function-code --s3-bucket $(BUCKET) --s3-key $(project)/$(zip) --function-name $(funcname) --region $(REGION) > /dev/null
+	@aws --region $(REGION) --profile $(PROFILE) lambda update-function-code --s3-bucket $(BUCKET) --s3-key $(project)/$(zip) --function-name $(funcname) > /dev/null
 	@echo "=== Finished deploying to DEV bucket: $(BUCKET)"
 
 
@@ -58,3 +59,9 @@ _deploy_%:  build_%
 _check_clean:
 	@echo "=== Checking if it is a clean repo"
 	@[ "xx$(clean)xx" == "xxxx" ] || { echo "Can't deploy from a dirty git checkout"; exit 1; }
+
+###################################################################################################
+# INVOKE
+###################################################################################################
+invoke_%:
+	@aws --region $(REGION) --profile $(PROFILE) lambda invoke --function-name $*_dev /tmp/$*.out
